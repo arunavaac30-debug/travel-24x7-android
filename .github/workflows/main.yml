@@ -17,6 +17,7 @@ jobs:
       - name: Extract Travel Project ZIP
         shell: bash
         run: |
+          set -e
           mkdir extracted
           ZIP_FILE=$(find . -maxdepth 1 -name '*.zip' -print -quit)
           if [ -z "$ZIP_FILE" ]; then
@@ -24,34 +25,26 @@ jobs:
             exit 1
           fi
           unzip -q "$ZIP_FILE" -d extracted
-          PACKAGE_FILE=$(find extracted -name package.json -print -quit)
-          if [ -z "$PACKAGE_FILE" ]; then
-            echo "package.json not found inside ZIP"
+          PROJECT_DIR=$(find extracted -name settings.gradle -printf '%h\n' | head -n 1)
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Android settings.gradle not found"
             exit 1
           fi
-          PROJECT_DIR=$(dirname "$PACKAGE_FILE")
-          cp -an "$PROJECT_DIR"/. .
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+          cp -a "$PROJECT_DIR"/. .
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: '17'
 
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Sync Android
-        run: npx cap sync android
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
       - name: Build Debug APK
-        working-directory: android
-        run: chmod +x gradlew && ./gradlew assembleDebug
+        run: gradle -p android assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
